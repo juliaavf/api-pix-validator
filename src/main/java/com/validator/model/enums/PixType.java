@@ -7,7 +7,7 @@ public enum PixType {
 
     EMAIL,
     CPF,
-    TELEFONE,
+    PHONE,
     RANDOM
 
 }

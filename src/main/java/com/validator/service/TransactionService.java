@@ -20,7 +20,6 @@ public class TransactionService {
 
     private final TransactionRepositoryImpl transactionRepository;
     private final TransactionValidator validator;
-    private final UserService userService;
 
     public List<TransactionResponse> findAll() {
         log.info("Fetching all transactions");

@@ -32,32 +32,21 @@ public class TransactionValidator {
 
 
     public Transaction validate(Transaction transaction) {
-        User receiver = userService.getOrCreateUser(transaction.getReceiver());
-        transaction.setReceiver(receiver);
+        transaction.setSender(userService.getOrCreateUser(transaction.getSender()));
+        transaction.setReceiver(userService.getOrCreateUser(transaction.getReceiver()));
 
-        User sender = userService.getOrCreateUser(transaction.getSender());
-        transaction.setSender(sender);
+        if (runAndCheck(() -> validateUserBlacklist(transaction), transaction)) return transaction;
+        if (runAndCheck(() -> validateTransactionValue(transaction), transaction)) return transaction;
 
-        validateUserBlacklist(transaction);
-        validateTransactionValue(transaction);
+        List<Transaction> lastTransactions = transactionRepository.findReceiverLast15Transactions(transaction.getReceiver().getId());
 
-        List<Transaction> lastTransactions = transactionRepository.findReceiverLast15Transactions(receiver.getId());
-        validateHighFrequency(transaction, lastTransactions);
-        validateOutOfAverageValue(transaction, lastTransactions);
-
-        if (TransactionStatus.FAILED.equals(transaction.getStatus())) {
-            return transaction;
-        }
-
-        validateDangerousDescription(transaction);
-        validateDangerousKeys(transaction);
-
-        if (TransactionStatus.PENDING_REVIEW.equals(transaction.getStatus())) {
-            return transaction;
-        }
-
+        if (runAndCheck(() -> validateHighFrequency(transaction, lastTransactions), transaction)) return transaction;
+        if (runAndCheck(() -> validateOutOfAverageValue(transaction, lastTransactions), transaction)) return transaction;
+        if (runAndCheck(() -> validateDangerousDescription(transaction), transaction)) return transaction;
+        if (runAndCheck(() -> validateDangerousKeys(transaction), transaction)) return transaction;
 
         transaction.setStatus(TransactionStatus.SUCCESS);
+        transaction.setFraudReason(null);
 
         return transaction;
     }
@@ -94,12 +83,20 @@ public class TransactionValidator {
     }
 
     public void validateDangerousKeys(Transaction transaction) {
-        List<String> usersKeys = List.of(transaction.getSender().getPixKey(), transaction.getReceiver().getPixKey());
-        List<String> normalizedKeys = usersKeys.stream().map(key -> key.toLowerCase(Locale.ROOT)).toList();
+        if (transaction == null || transaction.getSender() == null || transaction.getReceiver() == null) {
+            return;
+        }
 
-        List<String> foundDangerousTerms = DANGEROUS_TERMS.stream().filter(normalizedKeys::contains).toList();
+        List<String> dangerousTerms = List.of("golpe", "fraude", "fake", "urgente");
 
-        if (BooleanUtils.isFalse(foundDangerousTerms.isEmpty())) {
+        String senderKey = Optional.ofNullable(transaction.getSender().getPixKey()).orElse("").toLowerCase(Locale.ROOT);
+        String receiverKey = Optional.ofNullable(transaction.getReceiver().getPixKey()).orElse("").toLowerCase(Locale.ROOT);
+
+        boolean foundDangerous =
+                dangerousTerms.stream().anyMatch(senderKey::contains) ||
+                        dangerousTerms.stream().anyMatch(receiverKey::contains);
+
+        if (foundDangerous) {
             transaction.setStatus(TransactionStatus.PENDING_REVIEW);
             transaction.setFraudReason(FraudReason.SUSPICIOUS_PIX_KEY);
         }
@@ -145,6 +142,11 @@ public class TransactionValidator {
 
     public void addUserToBlackList(User user) {
         blackListRepository.save(new BlackList(null, user, LocalDateTime.now()));
+    }
+
+    private boolean runAndCheck(Runnable validator, Transaction transaction) {
+        validator.run();
+        return transaction.getStatus() != null;
     }
 
 }
