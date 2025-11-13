@@ -76,4 +76,11 @@ public class TransactionService {
         log.info("Transaction deleted successfully with id={}", id);
     }
 
+    public List<TransactionResponse> findByStatus(String status) {
+        log.info("Fetching transactions with status={}", status);
+        return transactionRepository.findByStatus(status).stream()
+                .map(Transaction::toResponse)
+                .collect(Collectors.toList());
+    }
+
 }

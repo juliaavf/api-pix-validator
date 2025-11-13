@@ -1,6 +1,7 @@
 package com.validator.repository;
 
 import com.validator.model.Transaction;
+import com.validator.model.enums.TransactionStatus;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
@@ -68,6 +69,20 @@ public class TransactionRepositoryImpl implements TransactionRepository {
                                 "WHERE t.receiver.id = :userId " +
                                 "ORDER BY t.createdDate DESC", Transaction.class)
                 .setParameter("userId", userId)
+                .setMaxResults(15)
+                .getResultList();
+    }
+
+    @Override
+    @Transactional(Transactional.TxType.SUPPORTS)
+    public List<Transaction> findByStatus(String status) {
+        TransactionStatus enumStatus = TransactionStatus.valueOf(status.toUpperCase());
+
+        return entityManager.createQuery(
+                        "SELECT t FROM Transaction t " +
+                                "WHERE t.status = :status " +
+                                "ORDER BY t.createdDate DESC", Transaction.class)
+                .setParameter("status", enumStatus)
                 .setMaxResults(15)
                 .getResultList();
     }

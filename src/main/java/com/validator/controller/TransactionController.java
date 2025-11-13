@@ -71,4 +71,9 @@ public class TransactionController {
                                 ResponseEntity.status(HttpStatus.NOT_FOUND)
                                         .body(ApiResponse.error("Transaction not found: " + id)));
     }
+
+    @GetMapping("/status/{status}")
+    public ResponseEntity<List<TransactionResponse>> findByStatus(@PathVariable String status) {
+        return ResponseEntity.ok(transactionService.findByStatus(status));
+    }
 }

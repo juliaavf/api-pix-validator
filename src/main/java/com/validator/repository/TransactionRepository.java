@@ -17,4 +17,6 @@ public interface TransactionRepository {
     void delete(Long id);
 
     List<Transaction> findReceiverLast15Transactions(Long userId);
+
+    List<Transaction> findByStatus(String status);
 }
